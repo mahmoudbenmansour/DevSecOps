@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk17'
-        maven 'maven3'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -16,29 +11,35 @@ pipeline {
 
         stage('Clean & Compile') {
             steps {
-                echo 'Nettoyage et compilation du projet...'
-                bat 'mvn clean compile'
+                dir('achat') {
+                    echo 'Nettoyage et compilation du projet...'
+                    bat 'mvn clean compile'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Execution des tests unitaires si disponibles...'
-                bat 'mvn test'
+                dir('achat') {
+                    echo 'Execution des tests unitaires...'
+                    bat 'mvn test'
+                }
             }
         }
 
         stage('Package') {
             steps {
-                echo 'Generation du fichier JAR...'
-                bat 'mvn package -DskipTests'
+                dir('achat') {
+                    echo 'Generation du fichier JAR...'
+                    bat 'mvn package -DskipTests'
+                }
             }
         }
 
         stage('Archive Artifact') {
             steps {
                 echo 'Archivage du fichier JAR genere...'
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                archiveArtifacts artifacts: 'achat/target/*.jar', fingerprint: true
             }
         }
     }
@@ -51,7 +52,7 @@ pipeline {
             echo 'Le pipeline a echoue.'
         }
         always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            junit allowEmptyResults: true, testResults: 'achat/target/surefire-reports/*.xml'
         }
     }
 }
