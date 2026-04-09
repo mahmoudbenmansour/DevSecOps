@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    tools {
+        jdk 'jdk17'
+        maven 'maven3'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Recuperation du code source depuis Git...'
+                checkout scm
+            }
+        }
+
+        stage('Clean & Compile') {
+            steps {
+                echo 'Nettoyage et compilation du projet...'
+                bat 'mvn clean compile'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                echo 'Execution des tests unitaires si disponibles...'
+                bat 'mvn test'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                echo 'Generation du fichier JAR...'
+                bat 'mvn package -DskipTests'
+            }
+        }
+
+        stage('Archive Artifact') {
+            steps {
+                echo 'Archivage du fichier JAR genere...'
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline execute avec succes.'
+        }
+        failure {
+            echo 'Le pipeline a echoue.'
+        }
+        always {
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+        }
+    }
+}
