@@ -27,6 +27,17 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                dir('achat') {
+                    echo 'Analyse de la qualite du code avec SonarQube...'
+                    withSonarQubeEnv('SonarQube') {
+                        bat 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=achat-app -Dsonar.projectName=achat-app'
+                    }
+                }
+            }
+        }
+
         stage('Package') {
             steps {
                 dir('achat') {
