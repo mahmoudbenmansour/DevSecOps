@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = 'achat-app'
+        CONTAINER_NAME = 'achat_app'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -43,6 +48,30 @@ pipeline {
                 dir('achat') {
                     echo 'Generation du fichier JAR...'
                     bat 'mvn package -DskipTests'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('achat') {
+                    echo 'Construction de l image Docker...'
+                    bat 'docker build -t %IMAGE_NAME% .'
+                }
+            }
+        }
+
+        stage('Test Docker Container') {
+            steps {
+                dir('achat') {
+                    echo 'Suppression de l ancien conteneur s il existe...'
+                    bat 'docker rm -f %CONTAINER_NAME% || exit 0'
+
+                    echo 'Demarrage du conteneur Docker...'
+                    bat 'docker run -d -p 8089:8089 --name %CONTAINER_NAME% %IMAGE_NAME%'
+
+                    echo 'Verification des conteneurs en cours...'
+                    bat 'docker ps'
                 }
             }
         }
