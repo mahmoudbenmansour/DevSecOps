@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:16
@@ -11,6 +13,11 @@ services:
       - "5433:5432"
     volumes:
       - achat_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U achat_user -d achatdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   pgadmin:
     image: dpage/pgadmin4
@@ -23,6 +30,20 @@ services:
       - "5051:80"
     depends_on:
       - postgres
+
+  app:
+    build: .
+    container_name: achat_app
+    restart: always
+    ports:
+      - "8089:8089"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/achatdb
+      SPRING_DATASOURCE_USERNAME: achat_user
+      SPRING_DATASOURCE_PASSWORD: achat_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   achat_postgres_data:
