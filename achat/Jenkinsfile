@@ -61,14 +61,14 @@ pipeline {
             }
         }
 
-        stage('Test Docker Container') {
+        stage('Run with Docker Compose') {
             steps {
                 dir('achat') {
-                    echo 'Suppression de l ancien conteneur s il existe...'
-                    bat 'docker rm -f %CONTAINER_NAME% || exit 0'
+                    echo 'Arret et suppression des anciens conteneurs...'
+                    bat 'docker compose down || exit 0'
 
-                    echo 'Demarrage du conteneur Docker...'
-                    bat 'docker run -d -p 8089:8089 --name %CONTAINER_NAME% %IMAGE_NAME%'
+                    echo 'Demarrage de la base et de l application avec Docker Compose...'
+                    bat 'docker compose up --build -d'
 
                     echo 'Verification des conteneurs en cours...'
                     bat 'docker ps'
