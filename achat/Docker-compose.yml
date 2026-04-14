@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16
@@ -30,7 +28,7 @@ services:
       - postgres
 
   app:
-    build: .
+    image: achat-app
     restart: always
     ports:
       - "8089:8089"

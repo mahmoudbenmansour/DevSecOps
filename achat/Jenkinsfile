@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'achat-app'
-        CONTAINER_NAME = 'achat_app'
     }
 
     stages {
@@ -65,10 +64,10 @@ pipeline {
             steps {
                 dir('achat') {
                     echo 'Arret et suppression des anciens conteneurs...'
-                    bat 'docker compose down || exit 0'
+                    bat 'docker compose down -v --remove-orphans || exit 0'
 
                     echo 'Demarrage de la base et de l application avec Docker Compose...'
-                    bat 'docker compose up --build -d'
+                    bat 'docker compose up -d'
 
                     echo 'Verification des conteneurs en cours...'
                     bat 'docker ps'
