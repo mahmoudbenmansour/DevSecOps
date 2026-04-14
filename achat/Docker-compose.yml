@@ -3,7 +3,6 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16
-    container_name: achat_postgres
     restart: always
     environment:
       POSTGRES_DB: achatdb
@@ -21,7 +20,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: achat_pgadmin
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
@@ -33,7 +31,6 @@ services:
 
   app:
     build: .
-    container_name: achat_app
     restart: always
     ports:
       - "8089:8089"
