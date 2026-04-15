@@ -60,17 +60,27 @@ pipeline {
             }
         }
 
-        stage('Run with Docker Compose') {
+        stage('Run Application and Monitoring Stack') {
             steps {
                 dir('achat') {
                     echo 'Arret et suppression des anciens conteneurs...'
                     bat 'docker compose down -v --remove-orphans || exit 0'
 
-                    echo 'Demarrage de la base et de l application avec Docker Compose...'
+                    echo 'Demarrage de l application, de la base et des outils de monitoring...'
                     bat 'docker compose up -d'
 
                     echo 'Verification des conteneurs en cours...'
                     bat 'docker ps'
+                }
+            }
+        }
+
+        stage('Check Monitoring Services') {
+            steps {
+                dir('achat') {
+                    echo 'Verification de Prometheus et Grafana...'
+                    bat 'docker ps --filter "name=prometheus"'
+                    bat 'docker ps --filter "name=grafana"'
                 }
             }
         }
