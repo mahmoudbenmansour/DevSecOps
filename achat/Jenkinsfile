@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'achat-app'
         IMAGE_TAG = 'latest'
-        FULL_IMAGE = 'achat-app:latest'
+        FULL_IMAGE = "achat-app:latest"
     }
 
     stages {
@@ -31,6 +31,9 @@ pipeline {
             }
         }
 
+        // =========================
+        // OWASP Dependency Check
+        // =========================
         stage('OWASP Dependency Check') {
             steps {
                 dir('achat') {
@@ -73,15 +76,15 @@ pipeline {
         }
 
         // =========================
-        // TRIVY FS SCAN (OPTIMIZED)
+        // TRIVY FS SCAN (FIX WINDOWS)
         // =========================
         stage('Trivy FS Scan') {
             steps {
                 dir('achat') {
                     bat '''
                     docker run --rm ^
-                    -v %cd%:/project ^
-                    -v %USERPROFILE%\\.cache\\trivy:/root/.cache/ ^
+                    -v "%cd%:/project" ^
+                    -v trivy-cache:/root/.cache/ ^
                     aquasec/trivy fs --no-progress /project
                     '''
                 }
@@ -89,7 +92,7 @@ pipeline {
         }
 
         // =========================
-        // BUILD IMAGE
+        // BUILD DOCKER IMAGE
         // =========================
         stage('Build Docker Image') {
             steps {
@@ -100,31 +103,20 @@ pipeline {
         }
 
         // =========================
-        // TRIVY IMAGE SCAN (FIXED WINDOWS)
+        // TRIVY IMAGE SCAN (FIXED)
         // =========================
         stage('Trivy Image Scan') {
             steps {
-                script {
-                    try {
-                        bat '''
-                        docker run --rm ^
-                        -v /var/run/docker.sock:/var/run/docker.sock ^
-                        aquasec/trivy image --no-progress achat-app:latest
-                        '''
-                    } catch (Exception e) {
-                        echo "⚠ Docker socket not available → using local Trivy fallback"
-
-                        bat '''
-                        docker run --rm ^
-                        -v %cd%:/project ^
-                        -v %USERPROFILE%\\.cache\\trivy:/root/.cache/ ^
-                        aquasec/trivy fs --no-progress /project
-                        '''
-                    }
-                }
+                bat '''
+                docker run --rm ^
+                aquasec/trivy image achat-app:latest
+                '''
             }
         }
 
+        // =========================
+        // RUN STACK
+        // =========================
         stage('Run Application & Stack') {
             steps {
                 dir('achat') {
@@ -136,7 +128,7 @@ pipeline {
         }
 
         // =========================
-        // OWASP ZAP (STABLE MODE)
+        // OWASP ZAP
         // =========================
         stage('OWASP ZAP Scan') {
             steps {
@@ -148,8 +140,7 @@ pipeline {
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC ^
                     -r reports/zap-report.html ^
-                    -I ^
-                    -m 5
+                    -I
                     '''
                 }
             }
@@ -181,11 +172,13 @@ pipeline {
 
     post {
         success {
-            echo '✅ DevSecOps Pipeline SUCCESS'
+            echo '✅ Pipeline DevSecOps exécuté avec succès'
         }
+
         failure {
-            echo '❌ Pipeline FAILED (check Trivy / Docker / ZAP / Sonar)'
+            echo '❌ Pipeline FAILED (check Trivy / Docker / Sonar / ZAP)'
         }
+
         always {
             junit allowEmptyResults: true,
                     testResults: 'achat/target/surefire-reports/*.xml'
