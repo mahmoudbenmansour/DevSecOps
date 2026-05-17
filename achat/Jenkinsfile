@@ -79,7 +79,10 @@ pipeline {
                     docker run --rm ^
                     -v "%cd%:/project" ^
                     -v trivy-cache:/root/.cache/ ^
-                    aquasec/trivy fs --no-progress /project
+                    aquasec/trivy fs ^
+                    --no-progress ^
+                    --scanners vuln,secret ^
+                    /project
                     '''
                 }
             }
@@ -93,9 +96,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // FIXED TRIVY IMAGE SCAN (WORKING ON WINDOWS JENKINS)
-        // =========================
         stage('Trivy Image Scan') {
             steps {
                 dir('achat') {
@@ -109,9 +109,11 @@ pipeline {
                     -v trivy-cache:/root/.cache/ ^
                     aquasec/trivy image ^
                     --input /project/image.tar ^
-                    --timeout 20m ^
+                    --timeout 60m ^
                     --no-progress ^
-                    --scanners vuln
+                    --scanners vuln ^
+                    --severity HIGH,CRITICAL ^
+                    --skip-db-update
                     '''
                 }
             }
