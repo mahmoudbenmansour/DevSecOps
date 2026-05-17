@@ -136,9 +136,10 @@ pipeline {
                     if not exist reports mkdir reports
 
                     docker run --rm ^
+                    -v "%cd%/reports:/zap/wrk" ^
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC ^
-                    -r reports/zap-report.html ^
+                    -r zap-report.html ^
                     -I
                     '''
                 }
