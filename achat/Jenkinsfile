@@ -94,20 +94,24 @@ pipeline {
         }
 
         // =========================
-        // FIXED TRIVY IMAGE SCAN (YOUR VERSION)
+        // FIXED TRIVY IMAGE SCAN (WORKING ON WINDOWS JENKINS)
         // =========================
         stage('Trivy Image Scan') {
             steps {
                 dir('achat') {
                     bat '''
+                    if not exist trivy-cache mkdir trivy-cache
+
+                    docker save %FULL_IMAGE% -o image.tar
+
                     docker run --rm ^
-                    -v //var/run/docker.sock:/var/run/docker.sock ^
+                    -v "%cd%:/project" ^
                     -v trivy-cache:/root/.cache/ ^
                     aquasec/trivy image ^
+                    --input /project/image.tar ^
                     --timeout 20m ^
                     --no-progress ^
-                    --scanners vuln ^
-                    %FULL_IMAGE%
+                    --scanners vuln
                     '''
                 }
             }
