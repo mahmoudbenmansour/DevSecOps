@@ -72,9 +72,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // TRIVY FS SCAN
-        // =========================
         stage('Trivy FS Scan') {
             steps {
                 dir('achat') {
@@ -88,9 +85,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // BUILD DOCKER IMAGE
-        // =========================
         stage('Build Docker Image') {
             steps {
                 dir('achat') {
@@ -100,13 +94,14 @@ pipeline {
         }
 
         // =========================
-        // ✅ FIXED TRIVY IMAGE SCAN (IMPORTANT)
+        // FIXED TRIVY IMAGE SCAN (YOUR VERSION)
         // =========================
         stage('Trivy Image Scan') {
             steps {
                 dir('achat') {
                     bat '''
                     docker run --rm ^
+                    -v //var/run/docker.sock:/var/run/docker.sock ^
                     -v trivy-cache:/root/.cache/ ^
                     aquasec/trivy image ^
                     --timeout 20m ^
@@ -118,9 +113,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // RUN STACK
-        // =========================
         stage('Run Application & Stack') {
             steps {
                 dir('achat') {
@@ -131,9 +123,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // OWASP ZAP
-        // =========================
         stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
