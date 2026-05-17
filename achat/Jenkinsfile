@@ -31,9 +31,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // OWASP Dependency Check
-        // =========================
         stage('OWASP Dependency Check') {
             steps {
                 dir('achat') {
@@ -76,7 +73,7 @@ pipeline {
         }
 
         // =========================
-        // TRIVY FS SCAN (FIX WINDOWS)
+        // FIXED TRIVY FS
         // =========================
         stage('Trivy FS Scan') {
             steps {
@@ -91,9 +88,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // BUILD DOCKER IMAGE
-        // =========================
         stage('Build Docker Image') {
             steps {
                 dir('achat') {
@@ -103,20 +97,22 @@ pipeline {
         }
 
         // =========================
-        // TRIVY IMAGE SCAN (FIXED)
+        // FIXED TRIVY IMAGE (IMPORTANT)
         // =========================
         stage('Trivy Image Scan') {
             steps {
-                bat '''
-                docker run --rm ^
-                aquasec/trivy image achat-app:latest
-                '''
+                dir('achat') {
+                    bat '''
+                    docker save achat-app:latest -o image.tar
+
+                    docker run --rm ^
+                    -v "%cd%:/project" ^
+                    aquasec/trivy image --input /project/image.tar --no-progress
+                    '''
+                }
             }
         }
 
-        // =========================
-        // RUN STACK
-        // =========================
         stage('Run Application & Stack') {
             steps {
                 dir('achat') {
@@ -127,9 +123,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // OWASP ZAP
-        // =========================
         stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
@@ -172,11 +165,11 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline DevSecOps exécuté avec succès'
+            echo '✅ Pipeline DevSecOps OK'
         }
 
         failure {
-            echo '❌ Pipeline FAILED (check Trivy / Docker / Sonar / ZAP)'
+            echo '❌ Pipeline FAILED (Trivy / Docker / Sonar / ZAP)'
         }
 
         always {
