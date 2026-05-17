@@ -6,9 +6,9 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                echo 'Recuperation du code source depuis Git...'
                 checkout scm
             }
         }
@@ -16,7 +16,6 @@ pipeline {
         stage('Clean & Compile') {
             steps {
                 dir('achat') {
-                    echo 'Nettoyage et compilation du projet...'
                     bat 'mvn clean compile'
                 }
             }
@@ -25,8 +24,24 @@ pipeline {
         stage('Test') {
             steps {
                 dir('achat') {
-                    echo 'Execution des tests unitaires...'
                     bat 'mvn test'
+                }
+            }
+        }
+
+        // =========================
+        // 🔐 SAST - DEPENDENCY CHECK
+        // =========================
+        stage('OWASP Dependency Check') {
+            steps {
+                dir('achat') {
+                    bat '''
+                    dependency-check.bat ^
+                    --project achat-app ^
+                    --scan . ^
+                    --format HTML ^
+                    --out reports
+                    '''
                 }
             }
         }
@@ -34,9 +49,8 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 dir('achat') {
-                    echo 'Analyse de la qualite du code avec SonarQube...'
                     withSonarQubeEnv('SonarQube') {
-                        bat 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=achat-app -Dsonar.projectName=achat-app'
+                        bat 'mvn sonar:sonar'
                     }
                 }
             }
@@ -45,8 +59,22 @@ pipeline {
         stage('Package') {
             steps {
                 dir('achat') {
-                    echo 'Generation du fichier JAR...'
                     bat 'mvn package -DskipTests'
+                }
+            }
+        }
+
+        // =========================
+        // 🔐 SCA - TRIVY FS SCAN
+        // =========================
+        stage('Trivy FS Scan') {
+            steps {
+                dir('achat') {
+                    bat '''
+                    docker run --rm ^
+                    -v %cd%:/project ^
+                    aquasec/trivy fs /project
+                    '''
                 }
             }
         }
@@ -54,41 +82,58 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('achat') {
-                    echo 'Construction de l image Docker...'
                     bat 'docker build -t %IMAGE_NAME% .'
                 }
             }
         }
 
-        stage('Run Application and Monitoring Stack') {
+        // =========================
+        // 🔐 CONTAINER SCAN - TRIVY
+        // =========================
+        stage('Trivy Image Scan') {
+            steps {
+                bat '''
+                docker run --rm aquasec/trivy image achat-app
+                '''
+            }
+        }
+
+        stage('Run Application & Stack') {
             steps {
                 dir('achat') {
-                    echo 'Arret et suppression des anciens conteneurs...'
                     bat 'docker compose down -v --remove-orphans || exit 0'
-
-                    echo 'Demarrage de l application, de la base et des outils de monitoring...'
                     bat 'docker compose up -d'
-
-                    echo 'Verification des conteneurs en cours...'
                     bat 'docker ps'
                 }
             }
         }
 
-        stage('Check Monitoring Services') {
+        // =========================
+        // 🔐 DAST - OWASP ZAP
+        // =========================
+        stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
-                    echo 'Verification de Prometheus et Grafana...'
-                    bat 'docker ps --filter "name=prometheus"'
-                    bat 'docker ps --filter "name=grafana"'
+                    bat '''
+                    docker run --rm ^
+                    ghcr.io/zaproxy/zaproxy zap-baseline.py ^
+                    -t http://host.docker.internal:8089/SpringMVC ^
+                    -r reports/zap-report.html
+                    '''
                 }
+            }
+        }
+
+        stage('Check Monitoring') {
+            steps {
+                bat 'docker ps --filter "name=prometheus"'
+                bat 'docker ps --filter "name=grafana"'
             }
         }
 
         stage('Publish to Nexus') {
             steps {
                 dir('achat') {
-                    echo 'Publication de l artifact dans Nexus...'
                     configFileProvider([configFile(fileId: '96c23311-fbc7-4aa0-a4c4-bc0686d66999', variable: 'MAVEN_SETTINGS')]) {
                         bat 'mvn deploy -s %MAVEN_SETTINGS% -DskipTests'
                     }
@@ -98,7 +143,6 @@ pipeline {
 
         stage('Archive Artifact') {
             steps {
-                echo 'Archivage du fichier JAR genere...'
                 archiveArtifacts artifacts: 'achat/target/*.jar', fingerprint: true
             }
         }
@@ -106,13 +150,14 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline execute avec succes.'
+            echo '✅ Pipeline DevSecOps exécuté avec succès'
         }
         failure {
-            echo 'Le pipeline a echoue.'
+            echo '❌ Pipeline échoué - vérifier logs sécurité'
         }
         always {
-            junit allowEmptyResults: true, testResults: 'achat/target/surefire-reports/*.xml'
+            junit allowEmptyResults: true,
+                    testResults: 'achat/target/surefire-reports/*.xml'
         }
     }
 }
