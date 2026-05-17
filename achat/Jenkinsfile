@@ -30,7 +30,7 @@ pipeline {
         }
 
         // =========================
-        // 🔐 SAST - DEPENDENCY CHECK (CORRIGÉ)
+        // 🔐 SAST - DEPENDENCY CHECK (FIX NVD 429)
         // =========================
         stage('OWASP Dependency Check') {
             steps {
@@ -46,7 +46,9 @@ pipeline {
                         --scan . ^
                         --format HTML ^
                         --out reports ^
-                        --disableCentral
+                        --disableCentral ^
+                        --noupdate ^
+                        --nvdMaxRetryCount 2
                         """
                     }
                 }
@@ -158,15 +160,12 @@ pipeline {
     }
 
     post {
-
         success {
             echo '✅ Pipeline DevSecOps exécuté avec succès'
         }
-
         failure {
             echo '❌ Pipeline échoué - vérifier logs sécurité'
         }
-
         always {
             junit allowEmptyResults: true,
                     testResults: 'achat/target/surefire-reports/*.xml'
