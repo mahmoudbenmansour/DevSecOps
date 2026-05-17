@@ -138,7 +138,7 @@ pipeline {
                     docker run --rm ^
                     -v "%cd%\\reports:/zap/wrk" ^
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
-                    -t http://host.docker.internal:8089/SpringMVC ^
+                    -t http://host.docker.internal:8089/SpringMVC/operateur/retrieve-all-operateurs ^
                     -r zap-report.html ^
                     -I
                     '''
