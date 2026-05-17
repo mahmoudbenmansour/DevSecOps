@@ -73,7 +73,7 @@ pipeline {
         }
 
         // =========================
-        // FIXED TRIVY FS
+        // TRIVY FS SCAN
         // =========================
         stage('Trivy FS Scan') {
             steps {
@@ -88,6 +88,9 @@ pipeline {
             }
         }
 
+        // =========================
+        // BUILD DOCKER IMAGE
+        // =========================
         stage('Build Docker Image') {
             steps {
                 dir('achat') {
@@ -97,22 +100,27 @@ pipeline {
         }
 
         // =========================
-        // FIXED TRIVY IMAGE (IMPORTANT)
+        // ✅ FIXED TRIVY IMAGE SCAN (IMPORTANT)
         // =========================
         stage('Trivy Image Scan') {
             steps {
                 dir('achat') {
                     bat '''
-                    docker save achat-app:latest -o image.tar
-
                     docker run --rm ^
-                    -v "%cd%:/project" ^
-                    aquasec/trivy image --input /project/image.tar --no-progress
+                    -v trivy-cache:/root/.cache/ ^
+                    aquasec/trivy image ^
+                    --timeout 20m ^
+                    --no-progress ^
+                    --scanners vuln ^
+                    %FULL_IMAGE%
                     '''
                 }
             }
         }
 
+        // =========================
+        // RUN STACK
+        // =========================
         stage('Run Application & Stack') {
             steps {
                 dir('achat') {
@@ -123,6 +131,9 @@ pipeline {
             }
         }
 
+        // =========================
+        // OWASP ZAP
+        // =========================
         stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
