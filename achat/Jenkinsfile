@@ -31,9 +31,6 @@ pipeline {
             }
         }
 
-        // =========================
-        // OWASP Dependency Check
-        // =========================
         stage('OWASP Dependency Check') {
             steps {
                 dir('achat') {
@@ -76,7 +73,7 @@ pipeline {
         }
 
         // =========================
-        // TRIVY FS SCAN
+        // TRIVY FS SCAN (OPTIMIZED)
         // =========================
         stage('Trivy FS Scan') {
             steps {
@@ -84,14 +81,15 @@ pipeline {
                     bat '''
                     docker run --rm ^
                     -v %cd%:/project ^
-                    aquasec/trivy fs /project
+                    -v %USERPROFILE%\\.cache\\trivy:/root/.cache/ ^
+                    aquasec/trivy fs --no-progress /project
                     '''
                 }
             }
         }
 
         // =========================
-        // BUILD DOCKER IMAGE
+        // BUILD IMAGE
         // =========================
         stage('Build Docker Image') {
             steps {
@@ -102,7 +100,7 @@ pipeline {
         }
 
         // =========================
-        // TRIVY IMAGE SCAN (FIXED)
+        // TRIVY IMAGE SCAN (FIXED WINDOWS)
         // =========================
         stage('Trivy Image Scan') {
             steps {
@@ -111,23 +109,22 @@ pipeline {
                         bat '''
                         docker run --rm ^
                         -v /var/run/docker.sock:/var/run/docker.sock ^
-                        aquasec/trivy image achat-app:latest
+                        aquasec/trivy image --no-progress achat-app:latest
                         '''
                     } catch (Exception e) {
-                        echo "Docker socket inaccessible → fallback FS scan"
+                        echo "⚠ Docker socket not available → using local Trivy fallback"
+
                         bat '''
                         docker run --rm ^
                         -v %cd%:/project ^
-                        aquasec/trivy fs /project
+                        -v %USERPROFILE%\\.cache\\trivy:/root/.cache/ ^
+                        aquasec/trivy fs --no-progress /project
                         '''
                     }
                 }
             }
         }
 
-        // =========================
-        // RUN STACK
-        // =========================
         stage('Run Application & Stack') {
             steps {
                 dir('achat') {
@@ -139,7 +136,7 @@ pipeline {
         }
 
         // =========================
-        // OWASP ZAP (FIXED)
+        // OWASP ZAP (STABLE MODE)
         // =========================
         stage('OWASP ZAP Scan') {
             steps {
@@ -151,7 +148,8 @@ pipeline {
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC ^
                     -r reports/zap-report.html ^
-                    -I
+                    -I ^
+                    -m 5
                     '''
                 }
             }
@@ -183,10 +181,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Pipeline DevSecOps OK'
+            echo '✅ DevSecOps Pipeline SUCCESS'
         }
         failure {
-            echo '❌ Pipeline FAILED - check Trivy / Docker / Sonar logs'
+            echo '❌ Pipeline FAILED (check Trivy / Docker / ZAP / Sonar)'
         }
         always {
             junit allowEmptyResults: true,
