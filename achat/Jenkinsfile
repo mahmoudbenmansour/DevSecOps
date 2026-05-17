@@ -30,18 +30,25 @@ pipeline {
         }
 
         // =========================
-        // 🔐 SAST - DEPENDENCY CHECK
+        // 🔐 SAST - DEPENDENCY CHECK (CORRIGÉ)
         // =========================
         stage('OWASP Dependency Check') {
             steps {
                 dir('achat') {
-                    bat '''
-                    dependency-check.bat ^
-                    --project achat-app ^
-                    --scan . ^
-                    --format HTML ^
-                    --out reports
-                    '''
+                    script {
+                        def dcHome = tool 'owasp-dc'
+
+                        bat """
+                        if not exist reports mkdir reports
+
+                        ${dcHome}\\bin\\dependency-check.bat ^
+                        --project achat-app ^
+                        --scan . ^
+                        --format HTML ^
+                        --out reports ^
+                        --disableCentral
+                        """
+                    }
                 }
             }
         }
@@ -88,7 +95,7 @@ pipeline {
         }
 
         // =========================
-        // 🔐 CONTAINER SCAN - TRIVY
+        // 🔐 CONTAINER SCAN - TRIVY IMAGE
         // =========================
         stage('Trivy Image Scan') {
             steps {
@@ -115,6 +122,8 @@ pipeline {
             steps {
                 dir('achat') {
                     bat '''
+                    if not exist reports mkdir reports
+
                     docker run --rm ^
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC ^
@@ -149,12 +158,15 @@ pipeline {
     }
 
     post {
+
         success {
             echo '✅ Pipeline DevSecOps exécuté avec succès'
         }
+
         failure {
             echo '❌ Pipeline échoué - vérifier logs sécurité'
         }
+
         always {
             junit allowEmptyResults: true,
                     testResults: 'achat/target/surefire-reports/*.xml'
