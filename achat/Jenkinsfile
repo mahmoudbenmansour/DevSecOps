@@ -129,19 +129,22 @@ pipeline {
             }
         }
 
+        // =========================
+        // FIXED OWASP ZAP SCAN
+        // =========================
         stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
-                    bat '''
+                    bat """
                     if not exist reports mkdir reports
 
                     docker run --rm ^
-                    -v "%cd%/reports:/zap/wrk" ^
-                    ghcr.io/zaproxy/zaproxy zap-baseline.py ^
+                    -v "%WORKSPACE%\\achat\\reports:/zap/wrk" ^
+                    ghcr.io/zaproxy/zaproxy:stable zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC ^
                     -r zap-report.html ^
                     -I
-                    '''
+                    """
                 }
             }
         }
@@ -156,7 +159,12 @@ pipeline {
         stage('Publish to Nexus') {
             steps {
                 dir('achat') {
-                    configFileProvider([configFile(fileId: '96c23311-fbc7-4aa0-a4c4-bc0686d66999', variable: 'MAVEN_SETTINGS')]) {
+                    configFileProvider([
+                            configFile(
+                                    fileId: '96c23311-fbc7-4aa0-a4c4-bc0686d66999',
+                                    variable: 'MAVEN_SETTINGS'
+                            )
+                    ]) {
                         bat 'mvn deploy -s %MAVEN_SETTINGS% -DskipTests'
                     }
                 }
@@ -171,6 +179,7 @@ pipeline {
     }
 
     post {
+
         success {
             echo '✅ Pipeline DevSecOps OK'
         }
