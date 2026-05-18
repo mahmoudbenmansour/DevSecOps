@@ -5,7 +5,6 @@ pipeline {
         IMAGE_NAME = 'achat-app'
         IMAGE_TAG = 'latest'
         FULL_IMAGE = "achat-app:latest"
-
         COMPOSE_PROJECT_NAME = 'achat'
     }
 
@@ -14,6 +13,22 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        /* =========================
+           LOAD .ENV SECURE (NEW)
+        ========================= */
+        stage('Load ENV securely') {
+            steps {
+                dir('achat') {
+                    withCredentials([file(credentialsId: 'achat-env', variable: 'ENV_FILE')]) {
+                        bat '''
+                        if exist .env del /f /q .env
+                        copy /Y "%ENV_FILE%" .env
+                        '''
+                    }
+                }
             }
         }
 
@@ -36,7 +51,6 @@ pipeline {
         stage('OWASP Dependency Check') {
             steps {
                 dir('achat') {
-
                     script {
                         def dcHome = tool 'owasp-dc'
 
@@ -60,11 +74,9 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 dir('achat') {
-
                     withSonarQubeEnv('SonarQube') {
                         bat 'mvn sonar:sonar'
                     }
-
                 }
             }
         }
@@ -80,7 +92,6 @@ pipeline {
         stage('Trivy FS Scan') {
             steps {
                 dir('achat') {
-
                     bat '''
                     if not exist reports mkdir reports
 
@@ -109,7 +120,6 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 dir('achat') {
-
                     bat '''
                     if not exist trivy-cache mkdir trivy-cache
                     if not exist reports mkdir reports
@@ -137,19 +147,19 @@ pipeline {
             steps {
                 dir('achat') {
 
-                    bat 'docker compose --env-file .env down -v --remove-orphans || exit 0'
-
-                    bat 'docker compose --env-file .env up -d'
-
+                    bat 'docker compose down -v --remove-orphans || exit 0'
+                    bat 'docker compose up -d'
                     bat 'docker ps'
                 }
             }
         }
 
+        /* =========================
+           FIXED ZAP STAGE (IMPORTANT)
+        ========================= */
         stage('OWASP ZAP Scan') {
             steps {
                 dir('achat') {
-
                     bat '''
                     if not exist reports mkdir reports
 
@@ -157,7 +167,7 @@ pipeline {
                     -v "%cd%\\reports:/zap/wrk" ^
                     ghcr.io/zaproxy/zaproxy zap-baseline.py ^
                     -t http://host.docker.internal:8089/SpringMVC/operateur/retrieve-all-operateurs ^
-                    -r zap-report.html ^
+                    -r /zap/wrk/zap-report.html ^
                     -I
                     '''
                 }
@@ -166,27 +176,21 @@ pipeline {
 
         stage('Check Monitoring') {
             steps {
-
                 bat 'docker ps --filter "name=prometheus"'
-
                 bat 'docker ps --filter "name=grafana"'
-
             }
         }
 
         stage('Publish to Nexus') {
             steps {
                 dir('achat') {
-
                     configFileProvider([
                             configFile(
                                     fileId: '96c23311-fbc7-4aa0-a4c4-bc0686d66999',
                                     variable: 'MAVEN_SETTINGS'
                             )
                     ]) {
-
                         bat 'mvn deploy -s %MAVEN_SETTINGS% -DskipTests'
-
                     }
                 }
             }
@@ -194,17 +198,13 @@ pipeline {
 
         stage('Archive Artifact') {
             steps {
-
                 archiveArtifacts artifacts: 'achat/target/*.jar', fingerprint: true
-
                 archiveArtifacts artifacts: 'achat/reports/*.*', fingerprint: true
-
             }
         }
     }
 
     post {
-
         success {
             echo '✅ Pipeline DevSecOps OK'
         }
@@ -214,10 +214,8 @@ pipeline {
         }
 
         always {
-
             junit allowEmptyResults: true,
                     testResults: 'achat/target/surefire-reports/*.xml'
-
         }
     }
 }
